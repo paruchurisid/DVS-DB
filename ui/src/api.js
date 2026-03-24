@@ -32,3 +32,29 @@ export async function checkpointWal() {
   }
   return data;
 }
+
+export async function resetDatabase() {
+  const response = await fetch(`${API_BASE}/database`, { method: "DELETE" });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data?.error ?? "Database reset failed");
+  }
+  return data;
+}
+
+export async function uploadCsv({ csvText, tableName, confirm }) {
+  const response = await fetch(`${API_BASE}/upload_csv`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      csv_text: csvText,
+      table_name: tableName,
+      confirm,
+    }),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data?.error ?? "CSV upload failed");
+  }
+  return data;
+}

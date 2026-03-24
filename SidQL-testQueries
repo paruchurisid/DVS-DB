@@ -1,0 +1,41 @@
+-- Core users table smoke tests
+SELECT * FROM users;
+INSERT INTO users VALUES (1, "alpha_user", "alpha@example.com");
+INSERT INTO users VALUES (2, "beta_user", "beta@example.com");
+SELECT * FROM users;
+SELECT * FROM users WHERE id = 1;
+UPDATE users SET username = "alpha_updated" WHERE id = 1;
+SELECT * FROM users WHERE id = 1;
+DELETE FROM users WHERE id = 2;
+SELECT * FROM users;
+
+-- Error-path tests (should return errors, not crash)
+INSERT INTO users VALUES (1, "duplicate_user", "dup@example.com");
+INSERT INTO users VALUES (-1, "bad_id", "bad@example.com");
+INSERT INTO users VALUES (3, "missing_email");
+SELCT * FROM users;
+SELECT * FROM users LIMIT 10;
+UPDATE users SET id = 10 WHERE id = 1;
+DELETE FROM users WHERE unknown_column = 1;
+UPDATE users SET username = "x" WHERE unknown_column = 1;
+
+-- No-match / harmless tests
+SELECT * FROM users WHERE id = 999999;
+DELETE FROM users WHERE id = 999999;
+UPDATE users SET email = "nobody@example.com" WHERE id = 999999;
+SELECT * FROM users WHERE username = "does_not_exist";
+
+-- WAL / checkpoint / reset API endpoint behavior checks (run via UI buttons where available)
+-- 1) Insert a few rows above
+-- 2) Click "Checkpoint WAL"
+-- 3) Run SELECT * FROM users;
+-- 4) Click "Reset Database"
+-- 5) Run SELECT * FROM users;
+
+-- Dynamic CSV table tests (replace uploaded_table with your actual CSV table name)
+SELECT * FROM uploaded_table;
+SELECT * FROM uploaded_table WHERE id = 1;
+SELECT * FROM uploaded_table WHERE email = "example@domain.com";
+SELECT * FROM uploaded_table WHERE name = "random_name_value";
+SELECT * FROM uploaded_table WHERE unknown_column = "x";
+SELECT * FROM uploaded_table LIMIT 5;
