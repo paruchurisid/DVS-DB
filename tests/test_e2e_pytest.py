@@ -137,9 +137,10 @@ def test_btree_integrity_with_many_rows(db_paths: tuple[Path, Path]) -> None:
 @pytest.fixture
 def api_client(tmp_path: Path):
     api_main = importlib.import_module("api.main")
-    api_main.DB_PATH = str(tmp_path / "api_test.db")
     importlib.reload(api_main)
     api_main.DB_PATH = str(tmp_path / "api_test.db")
+    api_main.WAL_PATH = str(tmp_path / "dvsdb.wal")
+    api_main.DYNAMIC_TABLES_PATH = str(tmp_path / "dynamic_tables.json")
 
     with TestClient(api_main.app) as client:
         yield client, tmp_path / "dvsdb.wal"
@@ -190,3 +191,45 @@ def test_edge_cases_long_strings_and_duplicate_id(db_paths: tuple[Path, Path]) -
     with pytest.raises(DuplicateKeyError):
         table.insert_transactional(row)
     table.close()
+
+
+def test_upload_csv_infer_and_create_dynamic_table(api_client) -> None:
+    client, _ = api_client
+    csv_text = "id,email,score\n1,a@x.com,10\n2,b@x.com,20.5\n3,c@x.com,30\n"
+
+    preview = client.post(
+        "/upload_csv",
+        json={"csv_text": csv_text, "table_name": "mockaroo_data", "confirm": False},
+    )
+    assert preview.status_code == 200
+    body = preview.json()
+    assert body["status"] == "preview"
+    assert body["table_name"] == "mockaroo_data"
+    assert [c["name"] for c in body["columns"]] == ["id", "email", "score"]
+
+    create = client.post(
+        "/upload_csv",
+        json={"csv_text": csv_text, "table_name": "mockaroo_data", "confirm": True},
+    )
+    assert create.status_code == 200
+    assert create.json()["inserted_rows"] == 3
+
+    query = client.post("/query", json={"query": "SELECT * FROM mockaroo_data;"})
+    assert query.status_code == 200
+    assert len(query.json()["rows"]) == 3
+
+
+def test_reset_database_endpoint(api_client) -> None:
+    client, _ = api_client
+    ins = client.post("/query", json={"query": 'INSERT INTO users VALUES (88, "reset_me", "reset@x.com");'})
+    assert ins.status_code == 200
+    before = client.post("/query", json={"query": "SELECT * FROM users;"})
+    assert any(r[0] == 88 for r in before.json()["rows"])
+
+    reset = client.delete("/database")
+    assert reset.status_code == 200
+    assert reset.json()["status"] == "ok"
+
+    after = client.post("/query", json={"query": "SELECT * FROM users;"})
+    assert after.status_code == 200
+    assert after.json()["rows"] == []
