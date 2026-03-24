@@ -1,0 +1,26 @@
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+
+# Local DB / WAL / dynamic table state (cold start = empty or missing runtime_data)
+runtime_data/*.db
+runtime_data/*.wal
+runtime_data/dynamic_tables.json
+
+# Stray engine files sometimes left in repo root during dev
+/*.db
+/*.wal
+
+ui/node_modules/
+ui/dist/
+ui/.env.local
+ui/.env*.local
+
+.DS_Store
+Thumbs.db

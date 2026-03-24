@@ -1,60 +1,54 @@
-# DVS-DB
+# DVS-DB (Data Vault by Sid)
 
-DvsDB is a lightweight embedded database engine inspired by SQLite.
-It runs entirely in-process against a single `.db` file and uses only Python's standard library.
+**DVS-DB** is a locally running, single-process database system and full-stack interface designed to teach and simulate real database architecture in a hackable, understandable way. It combines a custom embedded storage engine, transactional durability mechanisms, an HTTP API layer, and a browser-based UI into one cohesive workflow.
 
-## Core Architecture
+### Core Features
 
-- `dvsdb/pager.py`: fixed-size page I/O and page cache
-- `dvsdb/serializer.py`: fixed-schema row encoding/decoding
-- `dvsdb/table.py`: logical table abstraction
-- `dvsdb/btree.py`: B-tree storage/index by `id`
-- `dvsdb/parser.py`: minimal SQL-like parser
-- `dvsdb/engine.py`: execution orchestrator
-- `dvsdb/cli.py`: interactive REPL shell
-- `dvsdb/query_service.py`: structured query execution for API clients
+- **Engine & Storage**
+  - File-backed page storage with deterministic fixed-size records
+  - B-tree indexing for ordered keys and efficient lookups
+  - Serializer enforcing schema and row boundaries
+  - Soft-delete support for logical row deletion
 
-## Interface Architecture
+- **CRUD & SQL-like Operations**
+  - `INSERT`, `SELECT`, `UPDATE`, and `DELETE` (soft-delete) for core tables
+  - Key-optimized queries and full-table scans for other filters
+  - High-level cursor abstraction (`DVSCursor`) for programmatic transactional operations
 
-- `api/main.py`: FastAPI server exposing DvsDB over HTTP
-- `ui/`: React (Vite) + Tailwind web client
-- Data flow: `React -> FastAPI -> DvsDB engine -> JSON response -> React rendering`
+- **ACID Transactions (Pragmatic Single-Threaded)**
+  - Write-Ahead Log (WAL) with synchronous `fsync` for durability
+  - Transactional queueing with `BEGIN -> operation -> COMMIT`
+  - Manual checkpoints to flush pages and compact WAL
+  - Crash recovery replays committed transactions only
 
-## Row Schema
+- **Frontend**
+  - React + Vite + Tailwind interface
+  - Query editor, results table, sidebar table navigation
+  - CSV upload with schema inference and dynamic table creation
+  - Operational log panel with timestamped, color-coded feedback
 
-- `id`: 4-byte unsigned integer
-- `username`: 32-byte fixed field
-- `email`: 255-byte fixed field
+- **API**
+  - FastAPI endpoints for queries, checkpoints, resets, and CSV ingestion
+  - Structured JSON responses with defensive error handling
 
-## Usage
+- **Testing**
+  - Unit and integration tests for pager, serializer, B-tree, WAL, checkpoint, API endpoints, CRUD, and cursor transactions
 
-Run the shell:
+### Quick Start
 
-```bash
-python -m dvsdb.cli mydata.db
-```
-
-Supported commands:
-
-- `INSERT INTO users VALUES (1, 'alice', 'alice@example.com')`
-- `SELECT * FROM users`
-- `.exit`
-
-## Web Interface
-
-Install backend dependencies:
+1. Install Python dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Start API server:
+2. Run the API (from the repository root):
 
 ```bash
-uvicorn api.main:app --reload
+uvicorn api.main:app --reload --port 8000
 ```
 
-Start frontend:
+3. Run the web UI:
 
 ```bash
 cd ui
@@ -62,15 +56,12 @@ npm install
 npm run dev
 ```
 
-Then open the Vite URL (default `http://localhost:5173`) and run queries like:
+Open the Vite URL (default `http://localhost:5173`). Point the UI at the API if needed via `ui/.env.local` and `VITE_API_BASE_URL` (for example `http://127.0.0.1:8000`).
 
-- `SELECT * FROM users;`
-- `INSERT INTO users VALUES (1, 'alice', 'alice@example.com');`
-
-## Tests
-
-Run all tests:
+4. Run automated tests:
 
 ```bash
-python -m unittest discover -s tests -v
+pytest -q
 ```
+
+Runtime database files default to `runtime_data/` (`dvsdb.db`, `dvsdb.wal`, `dynamic_tables.json`). They are recreated on first use; delete that folder for a cold start.

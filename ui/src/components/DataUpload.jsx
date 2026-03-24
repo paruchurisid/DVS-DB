@@ -54,7 +54,6 @@ export default function DataUpload({ onStatus, onTablesChanged }) {
       <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-600">Dynamic CSV Ingestion</h3>
       <form className="grid grid-cols-1 gap-3 md:grid-cols-3">
         <div className="md:col-span-3 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm">
-          <p className="font-medium text-slate-700">Dynamic CSV Ingestion</p>
           <p className="mt-1 text-slate-600">Upload any CSV file, infer schema, then create a table dynamically.</p>
           <div className="mt-3 flex flex-wrap items-center gap-3">
             <input
@@ -94,7 +93,11 @@ export default function DataUpload({ onStatus, onTablesChanged }) {
       </form>
       <div className="mt-3 text-sm">
         {status ? (
-          <span className={status.toLowerCase().includes("success") || status.toLowerCase().includes("inserted") ? "text-emerald-700" : "text-red-600"}>
+          <span
+            className={
+              /\b(detected|created|inserted|success)\b/i.test(status) ? "text-emerald-700" : "text-red-600"
+            }
+          >
             {status}
           </span>
         ) : (

@@ -24,7 +24,9 @@ class DynamicTableStore:
 
     def __init__(self, storage_path: str) -> None:
         self.storage_path = storage_path
-        os.makedirs(os.path.dirname(storage_path), exist_ok=True)
+        parent = os.path.dirname(os.path.abspath(storage_path))
+        if parent:
+            os.makedirs(parent, exist_ok=True)
         if not os.path.exists(storage_path):
             self._write({"tables": {}})
 

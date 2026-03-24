@@ -104,3 +104,39 @@ def test_upload_csv_valid_and_invalid_cases(api_client) -> None:
     )
     assert mixed.status_code == 200
     assert mixed.json()["status"] == "ok"
+
+
+def test_tables_lists_users_only_when_non_empty_and_dynamic_tables(api_client) -> None:
+    client, _ = api_client
+    empty = client.get("/tables")
+    assert empty.status_code == 200
+    assert empty.json()["tables"] == []
+
+    client.post("/upload_csv", json={"csv_text": "id,v\n1,a\n", "table_name": "dyn_x", "confirm": True})
+    with_users = client.get("/tables")
+    assert with_users.status_code == 200
+    assert "dyn_x" in with_users.json()["tables"]
+    assert "users" not in with_users.json()["tables"]
+
+    client.post("/query", json={"query": 'INSERT INTO users VALUES (1, "u", "u@x.com");'})
+    with_both = client.get("/tables")
+    names = with_both.json()["tables"]
+    assert "users" in names and "dyn_x" in names
+
+
+def test_dynamic_select_where_bad_column_returns_400(api_client) -> None:
+    client, _ = api_client
+    client.post("/upload_csv", json={"csv_text": "id,v\n1,a\n2,b\n", "table_name": "dyn_y", "confirm": True})
+    bad = client.post("/query", json={"query": "SELECT * FROM dyn_y WHERE nosuchcol = 1;"})
+    assert bad.status_code == 400
+    assert "error" in bad.json()
+
+
+def test_csv_same_table_name_replaces_and_new_query_data(api_client) -> None:
+    client, _ = api_client
+    client.post("/upload_csv", json={"csv_text": "id,v\n1,first\n", "table_name": "dyn_z", "confirm": True})
+    client.post("/upload_csv", json={"csv_text": "id,v\n9,replaced\n", "table_name": "dyn_z", "confirm": True})
+    sel = client.post("/query", json={"query": "SELECT * FROM dyn_z;"})
+    assert sel.status_code == 200
+    rows = sel.json()["rows"]
+    assert len(rows) == 1 and rows[0][0] == 9
