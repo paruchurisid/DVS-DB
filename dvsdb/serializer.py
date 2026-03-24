@@ -1,6 +1,6 @@
 import struct
 
-from dvsdb.constants import EMAIL_SIZE, ID_SIZE, ROW_SIZE, USERNAME_SIZE
+from dvsdb.constants import EMAIL_SIZE, ID_SIZE, IS_DELETED_SIZE, ROW_SIZE, USERNAME_SIZE
 from dvsdb.models import Row
 
 
@@ -21,7 +21,8 @@ def serialize_row(row: Row) -> bytes:
     id_part = struct.pack("<I", row.id)
     username_part = _encode_fixed(row.username, USERNAME_SIZE)
     email_part = _encode_fixed(row.email, EMAIL_SIZE)
-    output = id_part + username_part + email_part
+    deleted_part = b"\x01" if row.is_deleted else b"\x00"
+    output = id_part + username_part + email_part + deleted_part
     if len(output) != ROW_SIZE:
         raise RuntimeError("Serialized row has invalid length")
     return output
@@ -32,10 +33,13 @@ def deserialize_row(raw: bytes) -> Row:
         raise ValueError(f"Expected {ROW_SIZE} bytes, got {len(raw)}")
     id_bytes = raw[:ID_SIZE]
     username_bytes = raw[ID_SIZE : ID_SIZE + USERNAME_SIZE]
-    email_bytes = raw[ID_SIZE + USERNAME_SIZE :]
+    email_end = ID_SIZE + USERNAME_SIZE + EMAIL_SIZE
+    email_bytes = raw[ID_SIZE + USERNAME_SIZE : email_end]
+    deleted_bytes = raw[email_end : email_end + IS_DELETED_SIZE]
     row_id = struct.unpack("<I", id_bytes)[0]
     return Row(
         id=row_id,
         username=_decode_fixed(username_bytes),
         email=_decode_fixed(email_bytes),
+        is_deleted=deleted_bytes == b"\x01",
     )

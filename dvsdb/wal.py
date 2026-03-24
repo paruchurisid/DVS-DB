@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import os
+import logging
 from collections.abc import Callable
+
+logger = logging.getLogger(__name__)
 
 
 class WALManager:
@@ -22,6 +25,7 @@ class WALManager:
     def begin_transaction(self) -> None:
         if self._in_transaction:
             raise RuntimeError("Transaction already active")
+        logger.info("wal.begin")
         self._append_and_sync("BEGIN")
         self._in_transaction = True
 
@@ -30,17 +34,20 @@ class WALManager:
             raise RuntimeError("No active transaction")
         if "\n" in operation_string:
             raise ValueError("Operation must be a single-line string")
+        logger.info("wal.log_operation op=%s", operation_string[:120])
         self._append_and_sync(operation_string)
 
     def commit(self) -> None:
         if not self._in_transaction:
             raise RuntimeError("No active transaction")
+        logger.info("wal.commit")
         self._append_and_sync("COMMIT")
         self._in_transaction = False
 
     def rollback(self) -> None:
         if not self._in_transaction:
             return
+        logger.info("wal.rollback")
         self._append_and_sync("ROLLBACK")
         self._in_transaction = False
 
@@ -54,6 +61,7 @@ class WALManager:
         - ignore explicit ROLLBACK blocks
         """
         committed_batches, _ = self._parse_transactions()
+        logger.info("wal.recover committed_batches=%d", len(committed_batches))
 
         for operations in committed_batches:
             for operation in operations:
@@ -74,13 +82,19 @@ class WALManager:
         _, has_incomplete = self._parse_transactions()
         if has_incomplete:
             raise RuntimeError("Cannot checkpoint with incomplete WAL transaction")
+        logger.info("wal.checkpoint start")
         flush_pages()
         self._file.flush()
         os.fsync(self._file.fileno())
         self._truncate_wal()
+        logger.info("wal.checkpoint complete")
 
     def close(self) -> None:
         self._file.close()
+
+    @property
+    def in_transaction(self) -> bool:
+        return self._in_transaction
 
     def _append_and_sync(self, line: str) -> None:
         self._file.write(line + "\n")

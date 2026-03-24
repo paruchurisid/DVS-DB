@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dvsdb.btree import DuplicateKeyError
 from dvsdb.models import Row
-from dvsdb.parser import InsertStatement, SelectStatement, Statement
+from dvsdb.parser import DeleteStatement, InsertStatement, SelectStatement, Statement, UpdateStatement
 from dvsdb.table import Table
 
 
@@ -16,8 +16,19 @@ class ExecutionEngine:
             self.table.insert_transactional(row)
             return "OK"
         if isinstance(statement, SelectStatement):
-            rows = self.table.select_all()
+            rows = self.table.select_where(statement.where_column, statement.where_value)
             return "\n".join(f"{r.id}\t{r.username}\t{r.email}" for r in rows) if rows else "(empty)"
+        if isinstance(statement, DeleteStatement):
+            deleted = self.table.delete_where(statement.where_column, statement.where_value)
+            return f"OK (deleted {deleted})"
+        if isinstance(statement, UpdateStatement):
+            updated = self.table.update_where(
+                statement.set_column,
+                statement.set_value,
+                statement.where_column,
+                statement.where_value,
+            )
+            return f"OK (updated {updated})"
         raise ValueError("Unsupported statement type")
 
 

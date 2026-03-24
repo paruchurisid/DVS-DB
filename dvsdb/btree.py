@@ -175,20 +175,21 @@ class BTree:
         return self._find_leaf(child, key)
 
     def get(self, key: int) -> Optional[Row]:
-        leaf_page_num = self._find_leaf(self.root_page_num, key)
+        pos = self._find_leaf_cell(key)
+        if pos is None:
+            return None
+        leaf_page_num, cell_num = pos
         leaf = self.pager.get_page(leaf_page_num)
-        num_cells = _num_keys(leaf)
-        lo, hi = 0, num_cells
-        while lo < hi:
-            mid = (lo + hi) // 2
-            mid_key = _leaf_key(leaf, mid)
-            if key == mid_key:
-                return deserialize_row(_leaf_value(leaf, mid))
-            if key < mid_key:
-                hi = mid
-            else:
-                lo = mid + 1
-        return None
+        return deserialize_row(_leaf_value(leaf, cell_num))
+
+    def replace(self, key: int, row: Row) -> bool:
+        pos = self._find_leaf_cell(key)
+        if pos is None:
+            return False
+        leaf_page_num, cell_num = pos
+        leaf = self.pager.get_page(leaf_page_num)
+        _leaf_set_value(leaf, cell_num, serialize_row(row))
+        return True
 
     def all_rows(self) -> list[Row]:
         rows: list[Row] = []
@@ -208,6 +209,22 @@ class BTree:
         if _node_type(page) == NODE_LEAF:
             return page_num
         return self._leftmost_leaf(_internal_child(page, 0))
+
+    def _find_leaf_cell(self, key: int) -> Optional[tuple[int, int]]:
+        leaf_page_num = self._find_leaf(self.root_page_num, key)
+        leaf = self.pager.get_page(leaf_page_num)
+        num_cells = _num_keys(leaf)
+        lo, hi = 0, num_cells
+        while lo < hi:
+            mid = (lo + hi) // 2
+            mid_key = _leaf_key(leaf, mid)
+            if key == mid_key:
+                return (leaf_page_num, mid)
+            if key < mid_key:
+                hi = mid
+            else:
+                lo = mid + 1
+        return None
 
     def insert(self, row: Row) -> None:
         payload = serialize_row(row)
